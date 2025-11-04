@@ -1,0 +1,6 @@
+If:
+  PathMatch: bt.c
+
+CompileFlags:
+  Add:
+    - -DBT_IMPLEMENTATION
