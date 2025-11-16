@@ -5,9 +5,11 @@
 #	include <string.h>
 #	include <stdbool.h>
 #	include <sys/stat.h>
+#	include <unistd.h>
+#endif
 
-#	include "span/span.c"
-#	include "log.c"
+#ifndef BT_DEF
+#	define BT_DEF static inline
 #endif
 
 /// just a immutable string
@@ -15,16 +17,18 @@ typedef const char* const bt_string;
 
 /// given an output and the inputs, checks if output needs to recompile.
 /// halts if the stat() of any files fails, https://pubs.opengroup.org/onlinepubs/009696799/functions/stat.html.
-static bool bt_needs_recompile(bt_string output, string_span inputs);
+BT_DEF bool bt_needs_recompile(bt_string output,
+															 const size_t inputs_count,
+															 const char* const inputs[]);
 
 /// prints them runs a command with system().
 /// halts on non-zero exit status.
-void bt_run(bt_string cmd);
+BT_DEF void bt_run(bt_string cmd);
 
 #ifdef BT_IMPLEMENTATION
 
-#	ifndef BT_TEMP_BUFFER_SIZE
-#		define BT_TEMP_BUFFER_SIZE ((size_t)1024)
+#	ifndef BT_BUFSIZE
+#		define BT_BUFSIZE ((size_t)1024)
 #	endif
 
 #	ifndef BT_CC
@@ -57,6 +61,14 @@ void bt_run(bt_string cmd);
 #		endif
 #	endif
 
+#	ifndef BT_STDOUT
+#		define BT_STDOUT stdout
+#	endif
+
+#	ifndef BT_STDERR
+#		define BT_STDERR stderr
+#	endif
+
 #	ifndef BT_STAT
 #		define BT_STAT stat
 #	endif
@@ -81,7 +93,102 @@ void bt_run(bt_string cmd);
 #		define BT_SYSTEM system
 #	endif
 
-static bool bt_needs_recompile(bt_string output, string_span inputs)
+// clang-format off
+#define BT_EXIT_OK           0
+#define BT_EXIT_USAGE        64   /* command line usage error */
+#define BT_EXIT_NOINPUT      66   /* cannot open input */
+#define BT_EXIT_SOFTWARE     70   /* internal software error */
+#define BT_EXIT_OSERR        71   /* system error (e.g., can't fork) */
+#define BT_EXIT_IOERR        74   /* input/output error */
+#define BT_EXIT_CONFIG       78   /* configuration error */
+// clang-format on
+
+#	ifndef BT_FPRINTF
+#		define BT_FPRINTF fprintf
+#	endif
+
+#	ifndef BT_EXIT
+#		define BT_EXIT exit
+#	endif
+
+#	define BT_MSG(format, ...) BT_FPRINTF(BT_STDOUT, format, ##__VA_ARGS__)
+
+#	define BT_HALT(status, format, ...)                   \
+		do                                                   \
+		{                                                    \
+			BT_FPRINTF(BT_STDERR, format "\n", ##__VA_ARGS__); \
+			BT_EXIT(status);                                   \
+		} while (0)
+
+#	define BT_ASSERT(status, cond, format, ...)  \
+		do                                          \
+		{                                           \
+			if (!(cond))                              \
+			{                                         \
+				BT_HALT(status, format, ##__VA_ARGS__); \
+			}                                         \
+		} while (0)
+
+#	define BT_ARGS_ARRAY(type, ...) \
+		(type const[])                 \
+		{                              \
+			__VA_ARGS__                  \
+		}
+
+#	define BT_ARGS_ARRAY_COUNTOF(type, ...) \
+		BT_COUNTOF(((type const[]){__VA_ARGS__}))
+
+#	define BT_COUNTOF(x) (sizeof(x) / sizeof(*(x)))
+
+#	define BT_PARAM_STR_ARRAY(...)                    \
+		BT_ARGS_ARRAY_COUNTOF(const char*, __VA_ARGS__), \
+				BT_ARGS_ARRAY(const char*, __VA_ARGS__)
+
+/// creates a stack buffer, formats using snprintf() then runs with system(). \
+/// halts if BT_BUFSIZE is too small.                                         \
+/// halts on non-zero exit status.
+#	define BT_RUNF(fmt, ...)                                                 \
+		{                                                                       \
+			char cmd[BT_BUFSIZE];                                                 \
+			int needed = snprintf(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);           \
+			BT_ASSERT(                                                            \
+					BT_EXIT_CONFIG, (needed >= 0 && needed < BT_BUFSIZE),             \
+					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
+					__FUNCTION__, cmd);                                               \
+			bt_run(cmd);                                                          \
+		}                                                                       \
+		while (0)
+
+/// creates a stack buffer, formats using snprintf() then runs with system().
+/// halts if bufsize is too small.
+/// halts on non-zero exit status.
+#	define BT_NRUNF(bufsize, fmt, ...)                                             \
+		{                                                                             \
+			char cmd[bufsize];                                                          \
+			int needed = snprintf(cmd, bufsize, fmt, ##__VA_ARGS__);                    \
+			BT_ASSERT(                                                                  \
+					BT_EXIT_CONFIG, (needed >= 0 && needed < bufsize),                      \
+					"%s: '%s...' formatted string is too long, increase BT_NRUNF bufsize!", \
+					__FUNCTION__, cmd);                                                     \
+			bt_run(cmd);                                                                \
+		}                                                                             \
+		while (0)
+
+#	define BT_REBUILD_URSELF(argv, ...)                                       \
+		if (bt_needs_recompile(                                                  \
+						argv[0], BT_PARAM_STR_ARRAY(_bt_file, __FILE__, ##__VA_ARGS__))) \
+		{                                                                        \
+			BT_RUNF(BT_CC " -ggdb -o %s %s", argv[0], __FILE__);                   \
+			execv(argv[0], (char**)argv);                                          \
+			perror("failed to run the rebuilt executable");                        \
+			exit(BT_EXIT_OSERR);                                                   \
+		}
+
+bt_string _bt_file = __FILE__;
+
+BT_DEF bool bt_needs_recompile(bt_string output,
+															 const size_t inputs_count,
+															 const char* const inputs[])
 {
 	struct BT_STAT st = {0};
 
@@ -93,18 +200,18 @@ static bool bt_needs_recompile(bt_string output, string_span inputs)
 			return true;
 		}
 
-		LOG_HALT(LOG_ERROR_CODE, "could not stat %s: %s", output,
-						 BT_STRERROR(BT_ERRNO));
+		BT_HALT(BT_EXIT_IOERR, "could not stat(%s): %s!", output,
+						BT_STRERROR(BT_ERRNO));
 	}
 
 	int output_time = st.BT_ST_MTIME;
 
-	for (size_t i = 0; i < inputs.size; ++i)
+	for (size_t i = 0; i < inputs_count; ++i)
 	{
-		if (BT_STAT(inputs.data[i], &st) < 0)
+		if (BT_STAT(inputs[i], &st) < 0)
 		{
-			LOG_HALT(LOG_ERROR_CODE, "could not stat %s: %s", inputs.data[i],
-							 BT_STRERROR(BT_ERRNO));
+			BT_HALT(BT_EXIT_NOINPUT, "could not stat(%s): %s!", output,
+							BT_STRERROR(BT_ERRNO));
 		}
 
 		int input_time = st.BT_ST_MTIME;
@@ -119,56 +226,17 @@ static bool bt_needs_recompile(bt_string output, string_span inputs)
 	return false;
 }
 
-void bt_run(bt_string cmd)
+BT_DEF void bt_run(bt_string cmd)
 {
-	LOG_MSG(" %s\n", cmd);
+	BT_MSG(" %s\n", cmd);
+	int status = BT_SYSTEM(cmd);
 
-	if (BT_SYSTEM(cmd) != 0)
+	if (status != 0)
 	{
-		LOG_HALT(LOG_ERROR_CODE, "failed to run command '%s': %s", cmd,
-						 BT_STRERROR(BT_ERRNO));
+		BT_HALT(status, "failed to run command '%s': %s", cmd,
+						BT_STRERROR(BT_ERRNO));
 	}
 }
-
-/// creates a stack buffer, formats using snprintf() then runs with system().
-/// halts if BT_TEMP_BUFFER_SIZE is too small.
-/// halts on non-zero exit status.
-#	define BT_RUNF(fmt, ...)                                                                                \
-		{                                                                                                      \
-			char cmd[BT_TEMP_BUFFER_SIZE];                                                                       \
-			int needed = snprintf(cmd, BT_TEMP_BUFFER_SIZE, fmt, ##__VA_ARGS__);                                 \
-			LOG_ASSERT(                                                                                          \
-					(needed >= 0 && needed < BT_TEMP_BUFFER_SIZE),                                                   \
-					"%s:%d: formatted string is too long, needed %d bytes, have %zu, increase BT_TEMP_BUFFER_SIZE!", \
-					__FILE__, __LINE__, needed, BT_TEMP_BUFFER_SIZE);                                                \
-			bt_run(cmd);                                                                                         \
-		}                                                                                                      \
-		while (0)
-
-/// creates a stack buffer, formats using snprintf() then runs with system().
-/// halts if bufsize is too small.
-/// halts on non-zero exit status.
-#	define BT_RUNF_N(bufsize, fmt, ...)                                                                   \
-		{                                                                                                    \
-			char cmd[bufsize];                                                                                 \
-			int needed = snprintf(cmd, bufsize, fmt, ##__VA_ARGS__);                                           \
-			LOG_ASSERT(                                                                                        \
-					(needed >= 0 && needed < bufsize),                                                             \
-					"%s:%d: formatted string is too long, needed %d bytes, have %zu, increase BT_RUNF_N bufsize!", \
-					__FILE__, __LINE__, needed, bufsize);                                                          \
-			bt_run(cmd);                                                                                       \
-		}                                                                                                    \
-		while (0)
-
-#	define BT_REBUILD_URSELF(argv, ...)                                     \
-		if (bt_needs_recompile(argv[0], STRING_SPAN(__FILE__, ##__VA_ARGS__))) \
-		{                                                                      \
-			BT_RUNF_N(BT_TEMP_BUFFER_SIZE, "cc -o %s %s", argv[0], __FILE__);    \
-			execv(argv[0], (char**)argv);                                        \
-			perror("failed to run the rebuilt executable");                      \
-			exit(1);                                                             \
-		}
-
 #endif	// BT_IMPLEMENTATION
 // Licensed under the LGPL3 or later versions of the LGPL license.
 // See the LICENSE file in the project root for more information.
