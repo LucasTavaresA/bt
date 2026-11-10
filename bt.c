@@ -148,6 +148,7 @@ BT_DEF void bt_run(bt_string cmd);
 /// halts if BT_BUFSIZE is too small.                                         \
 /// halts on non-zero exit status.
 #	define BT_RUNF(fmt, ...)                                                 \
+		do                                                                      \
 		{                                                                       \
 			char cmd[BT_BUFSIZE];                                                 \
 			int needed = snprintf(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);           \
@@ -156,13 +157,13 @@ BT_DEF void bt_run(bt_string cmd);
 					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
 					__FUNCTION__, cmd);                                               \
 			bt_run(cmd);                                                          \
-		}                                                                       \
-		while (0)
+		} while (0)
 
 /// creates a stack buffer, formats using snprintf() then runs with system().
 /// halts if bufsize is too small.
 /// halts on non-zero exit status.
 #	define BT_NRUNF(bufsize, fmt, ...)                                             \
+		do                                                                            \
 		{                                                                             \
 			char cmd[bufsize];                                                          \
 			int needed = snprintf(cmd, bufsize, fmt, ##__VA_ARGS__);                    \
@@ -171,8 +172,7 @@ BT_DEF void bt_run(bt_string cmd);
 					"%s: '%s...' formatted string is too long, increase BT_NRUNF bufsize!", \
 					__FUNCTION__, cmd);                                                     \
 			bt_run(cmd);                                                                \
-		}                                                                             \
-		while (0)
+		} while (0)
 
 #	define BT_REBUILD_URSELF(argv, ...)                                       \
 		if (bt_needs_recompile(                                                  \
