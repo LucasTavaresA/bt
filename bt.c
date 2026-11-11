@@ -179,7 +179,7 @@ BT_DEF void bt_run(bt_string cmd);
 		if (bt_needs_recompile(                                                  \
 						argv[0], BT_PARAM_STR_ARRAY(_bt_file, __FILE__, ##__VA_ARGS__))) \
 		{                                                                        \
-			BT_RUNF(BT_CC " -ggdb -o %s %s", argv[0], __FILE__);                   \
+			BT_ERUNF(BT_CC " -ggdb -o %s %s", argv[0], __FILE__);                  \
 			execv(argv[0], (char**)argv);                                          \
 			perror("failed to run the rebuilt executable");                        \
 			exit(BT_EXIT_OSERR);                                                   \
