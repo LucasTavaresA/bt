@@ -6,6 +6,9 @@
 #	include <stdbool.h>
 #	include <sys/stat.h>
 #	include <unistd.h>
+#	ifndef _WIN32
+#		include <sys/wait.h>
+#	endif
 #endif
 
 #ifndef BT_DEF
@@ -91,6 +94,15 @@ BT_DEF void bt_run(bt_string cmd);
 
 #	ifndef BT_SYSTEM
 #		define BT_SYSTEM system
+#	endif
+
+#	ifndef BT_SYSTEM_EXIT_CODE
+#		if defined(_WIN32)
+#			define BT_SYSTEM_EXIT_CODE(status) (status)
+#		else
+#			define BT_SYSTEM_EXIT_CODE(status) \
+				(WIFEXITED(status) ? WEXITSTATUS(status) : BT_EXIT_OSERR)
+#		endif
 #	endif
 
 // clang-format off
@@ -232,10 +244,15 @@ BT_DEF void bt_run(bt_string cmd)
 	BT_MSG(" %s\n", cmd);
 	int status = BT_SYSTEM(cmd);
 
-	if (status != 0)
+	// https://pubs.opengroup.org/onlinepubs/9799919799/
+	if (status == -1)
 	{
-		BT_HALT(status, "failed to run command '%s': %s", cmd,
+		BT_HALT(BT_EXIT_OSERR, "failed to run command '%s': %s", cmd,
 						BT_STRERROR(BT_ERRNO));
+	}
+	else if (status != 0)
+	{
+		BT_HALT(BT_SYSTEM_EXIT_CODE(status), "command '%s' failed", cmd);
 	}
 }
 #endif	// BT_IMPLEMENTATION
