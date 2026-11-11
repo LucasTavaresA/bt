@@ -187,17 +187,20 @@ BT_DEF void bt_run(bt_string cmd);
 			BT_SYSTEM(cmd);                                                       \
 		} while (0)
 
-#	define BT_REBUILD_URSELF(argv, ...)                                       \
-		if (bt_needs_recompile(                                                  \
-						argv[0], BT_PARAM_STR_ARRAY(_bt_file, __FILE__, ##__VA_ARGS__))) \
-		{                                                                        \
-			BT_ERUNF(BT_CC " -ggdb -o %s %s", argv[0], __FILE__);                  \
-			execv(argv[0], (char**)argv);                                          \
-			perror("failed to run the rebuilt executable");                        \
-			exit(BT_EXIT_OSERR);                                                   \
+#	define BT_REBUILD_URSELF(argv, ...)                                         \
+		if (bt_needs_recompile(                                                    \
+						argv[0], BT_PARAM_STR_ARRAY(_bt_file(), __FILE__, ##__VA_ARGS__))) \
+		{                                                                          \
+			BT_ERUNF(BT_CC " -ggdb -o %s %s", argv[0], __FILE__);                    \
+			execv(argv[0], (char**)argv);                                            \
+			perror("failed to run the rebuilt executable");                          \
+			exit(BT_EXIT_OSERR);                                                     \
 		}
 
-bt_string _bt_file = __FILE__;
+BT_DEF bt_string _bt_file(void)
+{
+	return __FILE__;
+}
 
 BT_DEF bool bt_needs_recompile(bt_string output,
 															 const size_t inputs_count,
