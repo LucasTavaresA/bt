@@ -159,21 +159,6 @@ BT_DEF void bt_run(bt_string cmd);
 			bt_run(cmd);                                                          \
 		} while (0)
 
-/// creates a stack buffer, formats using snprintf() then runs with system().
-/// halts if bufsize is too small.
-/// halts on non-zero exit status.
-#	define BT_NRUNF(bufsize, fmt, ...)                                             \
-		do                                                                            \
-		{                                                                             \
-			char cmd[bufsize];                                                          \
-			int needed = snprintf(cmd, bufsize, fmt, ##__VA_ARGS__);                    \
-			BT_ASSERT(                                                                  \
-					BT_EXIT_CONFIG, (needed >= 0 && needed < bufsize),                      \
-					"%s: '%s...' formatted string is too long, increase BT_NRUNF bufsize!", \
-					__FUNCTION__, cmd);                                                     \
-			bt_run(cmd);                                                                \
-		} while (0)
-
 #	define BT_REBUILD_URSELF(argv, ...)                                       \
 		if (bt_needs_recompile(                                                  \
 						argv[0], BT_PARAM_STR_ARRAY(_bt_file, __FILE__, ##__VA_ARGS__))) \
