@@ -178,7 +178,7 @@ BT_DEF void bt_run(bt_string cmd);
 			char cmd[BT_BUFSIZE];                                                 \
 			int needed = BT_SNPRINTF(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);        \
 			BT_ASSERT(                                                            \
-					BT_EXIT_CONFIG, (needed >= 0 && needed < BT_BUFSIZE),             \
+					BT_EXIT_CONFIG, (needed >= 0 && (size_t)needed < BT_BUFSIZE),     \
 					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
 					__FUNCTION__, cmd);                                               \
 			bt_run(cmd);                                                          \
@@ -193,7 +193,7 @@ BT_DEF void bt_run(bt_string cmd);
 			char cmd[BT_BUFSIZE];                                                 \
 			int needed = BT_SNPRINTF(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);        \
 			BT_ASSERT(                                                            \
-					BT_EXIT_CONFIG, (needed >= 0 && needed < BT_BUFSIZE),             \
+					BT_EXIT_CONFIG, (needed >= 0 && (size_t)needed < BT_BUFSIZE),     \
 					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
 					__FUNCTION__, cmd);                                               \
 			BT_MSG(" %s\n", cmd);                                                 \
@@ -214,7 +214,7 @@ BT_DEF void bt_run(bt_string cmd);
 			}                                                                        \
 		} while (0)
 
-BT_DEF bt_string _bt_file(void)
+BT_DEF const char* _bt_file(void)
 {
 	return __FILE__;
 }
