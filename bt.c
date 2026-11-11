@@ -144,10 +144,10 @@ BT_DEF void bt_run(bt_string cmd);
 		BT_ARGS_ARRAY_COUNTOF(const char*, __VA_ARGS__), \
 				BT_ARGS_ARRAY(const char*, __VA_ARGS__)
 
-/// creates a stack buffer, formats using snprintf() then runs with system(). \
-/// halts if BT_BUFSIZE is too small.                                         \
+/// creates a stack buffer, formats using snprintf() then runs with system().
+/// halts if BT_BUFSIZE is too small.
 /// halts on non-zero exit status.
-#	define BT_RUNF(fmt, ...)                                                 \
+#	define BT_ERUNF(fmt, ...)                                                \
 		do                                                                      \
 		{                                                                       \
 			char cmd[BT_BUFSIZE];                                                 \
@@ -157,6 +157,22 @@ BT_DEF void bt_run(bt_string cmd);
 					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
 					__FUNCTION__, cmd);                                               \
 			bt_run(cmd);                                                          \
+		} while (0)
+
+/// creates a stack buffer, formats using snprintf() then runs with system().
+/// halts if BT_BUFSIZE is too small.
+/// does not halt if system() errors
+#	define BT_RUNF(fmt, ...)                                                 \
+		do                                                                      \
+		{                                                                       \
+			char cmd[BT_BUFSIZE];                                                 \
+			int needed = snprintf(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);           \
+			BT_ASSERT(                                                            \
+					BT_EXIT_CONFIG, (needed >= 0 && needed < BT_BUFSIZE),             \
+					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
+					__FUNCTION__, cmd);                                               \
+			BT_MSG(" %s\n", cmd);                                                 \
+			BT_SYSTEM(cmd);                                                       \
 		} while (0)
 
 #	define BT_REBUILD_URSELF(argv, ...)                                       \
