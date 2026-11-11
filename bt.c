@@ -223,7 +223,7 @@ BT_DEF bool bt_needs_recompile(bt_string output,
 	{
 		if (BT_STAT(inputs[i], &st) < 0)
 		{
-			BT_HALT(BT_EXIT_NOINPUT, "could not stat(%s): %s!", output,
+			BT_HALT(BT_EXIT_NOINPUT, "could not stat(%s): %s!", inputs[i],
 							BT_STRERROR(BT_ERRNO));
 		}
 
