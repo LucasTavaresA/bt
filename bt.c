@@ -97,6 +97,10 @@ BT_DEF void bt_run(bt_string cmd);
 #		define BT_SYSTEM system
 #	endif
 
+#	ifndef BT_EXECV
+#		define BT_EXECV execv
+#	endif
+
 #	ifndef BT_SYSTEM_EXIT_CODE
 #		if defined(_WIN32)
 #			define BT_SYSTEM_EXIT_CODE(status) (status)
@@ -118,6 +122,10 @@ BT_DEF void bt_run(bt_string cmd);
 
 #	ifndef BT_FPRINTF
 #		define BT_FPRINTF fprintf
+#	endif
+
+#	ifndef BT_SNPRINTF
+#		define BT_SNPRINTF snprintf
 #	endif
 
 #	ifndef BT_EXIT
@@ -164,7 +172,7 @@ BT_DEF void bt_run(bt_string cmd);
 		do                                                                      \
 		{                                                                       \
 			char cmd[BT_BUFSIZE];                                                 \
-			int needed = snprintf(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);           \
+			int needed = BT_SNPRINTF(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);        \
 			BT_ASSERT(                                                            \
 					BT_EXIT_CONFIG, (needed >= 0 && needed < BT_BUFSIZE),             \
 					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
@@ -179,7 +187,7 @@ BT_DEF void bt_run(bt_string cmd);
 		do                                                                      \
 		{                                                                       \
 			char cmd[BT_BUFSIZE];                                                 \
-			int needed = snprintf(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);           \
+			int needed = BT_SNPRINTF(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);        \
 			BT_ASSERT(                                                            \
 					BT_EXIT_CONFIG, (needed >= 0 && needed < BT_BUFSIZE),             \
 					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
@@ -195,9 +203,9 @@ BT_DEF void bt_run(bt_string cmd);
 																												 ##__VA_ARGS__)))      \
 			{                                                                        \
 				BT_ERUNF(BT_CC " -ggdb -o %s %s", argv[0], __FILE__);                  \
-				execv(argv[0], (char**)argv);                                          \
-				perror("failed to run the rebuilt executable");                        \
-				exit(BT_EXIT_OSERR);                                                   \
+				BT_EXECV(argv[0], (char**)argv);                                       \
+				BT_HALT(BT_EXIT_OSERR, "failed to run the rebuilt executable: %s",     \
+								BT_STRERROR(BT_ERRNO));                                        \
 			}                                                                        \
 		} while (0)
 
