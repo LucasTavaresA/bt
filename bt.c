@@ -5,6 +5,7 @@
 #	include <string.h>
 #	include <stdbool.h>
 #	include <sys/stat.h>
+#	include <time.h>
 #	include <unistd.h>
 #	ifndef _WIN32
 #		include <sys/wait.h>
@@ -223,7 +224,7 @@ BT_DEF bool bt_needs_recompile(bt_string output,
 						BT_STRERROR(BT_ERRNO));
 	}
 
-	int output_time = st.BT_ST_MTIME;
+	time_t output_time = st.BT_ST_MTIME;
 
 	for (size_t i = 0; i < inputs_count; ++i)
 	{
@@ -233,7 +234,7 @@ BT_DEF bool bt_needs_recompile(bt_string output,
 							BT_STRERROR(BT_ERRNO));
 		}
 
-		int input_time = st.BT_ST_MTIME;
+		time_t input_time = st.BT_ST_MTIME;
 
 		if (input_time > output_time)
 		{
