@@ -136,23 +136,29 @@ BT_DEF void bt_run(bt_string cmd);
 #		define BT_EXIT exit
 #	endif
 
-#	define BT_MSG(format, ...) BT_FPRINTF(BT_STDOUT, format, ##__VA_ARGS__)
-
-#	define BT_HALT(status, format, ...)                   \
-		do                                                   \
-		{                                                    \
-			BT_FPRINTF(BT_STDERR, format "\n", ##__VA_ARGS__); \
-			BT_EXIT(status);                                   \
+/// BT_HALT(status, format, ...)
+#	define BT_HALT(status, ...)            \
+		do                                    \
+		{                                     \
+			BT_FPRINTF(BT_STDERR, __VA_ARGS__); \
+			BT_FPRINTF(BT_STDERR, "\n");        \
+			BT_EXIT(status);                    \
 		} while (0)
 
-#	define BT_ASSERT(status, cond, format, ...)  \
-		do                                          \
-		{                                           \
-			if (!(cond))                              \
-			{                                         \
-				BT_HALT(status, format, ##__VA_ARGS__); \
-			}                                         \
+/// BT_ASSERT(status, cond, format, ...)
+#	define BT_ASSERT(status, cond, ...) \
+		do                                 \
+		{                                  \
+			if (!(cond))                     \
+			{                                \
+				BT_HALT(status, __VA_ARGS__);  \
+			}                                \
 		} while (0)
+
+#	define BT_FIRST(...) _BT_FIRST(__VA_ARGS__, 0)
+#	define _BT_FIRST(x, ...) x
+#	define BT_REST(...) _BT_REST(__VA_ARGS__, 0)
+#	define _BT_REST(x, ...) __VA_ARGS__
 
 #	define BT_ARGS_ARRAY(type, ...) \
 		(type const[])                 \
@@ -172,46 +178,56 @@ BT_DEF void bt_run(bt_string cmd);
 /// creates a stack buffer, formats using snprintf() then runs with system().
 /// halts if BT_BUFSIZE is too small.
 /// halts on non-zero exit status.
-#	define BT_ERUNF(fmt, ...)                                                \
+/// BT_ERUNF(fmt, ...)
+#	define BT_ERUNF(...)                                                     \
 		do                                                                      \
 		{                                                                       \
 			char cmd[BT_BUFSIZE];                                                 \
-			int needed = BT_SNPRINTF(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);        \
+			int needed = BT_SNPRINTF(cmd, BT_BUFSIZE, __VA_ARGS__);               \
 			BT_ASSERT(                                                            \
 					BT_EXIT_CONFIG, (needed >= 0 && (size_t)needed < BT_BUFSIZE),     \
 					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
-					__FUNCTION__, cmd);                                               \
+					__func__, cmd);                                                   \
 			bt_run(cmd);                                                          \
 		} while (0)
 
 /// creates a stack buffer, formats using snprintf() then runs with system().
 /// halts if BT_BUFSIZE is too small.
 /// does not halt if system() errors
-#	define BT_RUNF(fmt, ...)                                                 \
+/// BT_RUNF(fmt, ...)
+#	define BT_RUNF(...)                                                      \
 		do                                                                      \
 		{                                                                       \
 			char cmd[BT_BUFSIZE];                                                 \
-			int needed = BT_SNPRINTF(cmd, BT_BUFSIZE, fmt, ##__VA_ARGS__);        \
+			int needed = BT_SNPRINTF(cmd, BT_BUFSIZE, __VA_ARGS__);               \
 			BT_ASSERT(                                                            \
 					BT_EXIT_CONFIG, (needed >= 0 && (size_t)needed < BT_BUFSIZE),     \
 					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
-					__FUNCTION__, cmd);                                               \
-			BT_MSG(" %s\n", cmd);                                                 \
+					__func__, cmd);                                                   \
+			BT_FPRINTF(BT_STDOUT, " %s\n", cmd);                                  \
 			BT_FFLUSH(BT_STDOUT);                                                 \
 			BT_SYSTEM(cmd);                                                       \
 		} while (0)
 
-#	define BT_REBUILD_URSELF(argv, ...)                                         \
-		do                                                                         \
-		{                                                                          \
-			if (bt_needs_recompile(argv[0], BT_PARAM_STR_ARRAY(_bt_file(), __FILE__, \
-																												 ##__VA_ARGS__)))      \
-			{                                                                        \
-				BT_ERUNF(BT_CC " -ggdb -o %s %s", argv[0], __FILE__);                  \
-				BT_EXECV(argv[0], (char**)argv);                                       \
-				BT_HALT(BT_EXIT_OSERR, "failed to run the rebuilt executable: %s",     \
-								BT_STRERROR(BT_ERRNO));                                        \
-			}                                                                        \
+/// BT_REST adds an extra 0 element at the end, we just do - 1.
+/// BT_REBUILD_URSELF(argv, ...)
+#	define BT_REBUILD_URSELF(...)                                             \
+		do                                                                       \
+		{                                                                        \
+			if (bt_needs_recompile(                                                \
+							(BT_FIRST(__VA_ARGS__))[0],                                    \
+							BT_ARGS_ARRAY_COUNTOF(const char*, _bt_file(), __FILE__,       \
+																		BT_REST(__VA_ARGS__)) -                  \
+									1,                                                         \
+							BT_ARGS_ARRAY(const char*, _bt_file(), __FILE__,               \
+														BT_REST(__VA_ARGS__))))                          \
+			{                                                                      \
+				BT_ERUNF(BT_CC " -ggdb -o %s %s", (BT_FIRST(__VA_ARGS__))[0],        \
+								 __FILE__);                                                  \
+				BT_EXECV((BT_FIRST(__VA_ARGS__))[0], (char**)BT_FIRST(__VA_ARGS__)); \
+				BT_HALT(BT_EXIT_OSERR, "failed to run the rebuilt executable: %s",   \
+								BT_STRERROR(BT_ERRNO));                                      \
+			}                                                                      \
 		} while (0)
 
 BT_DEF const char* _bt_file(void)
@@ -261,7 +277,7 @@ BT_DEF bool bt_needs_recompile(bt_string output,
 
 BT_DEF void bt_run(bt_string cmd)
 {
-	BT_MSG(" %s\n", cmd);
+	BT_FPRINTF(BT_STDOUT, " %s\n", cmd);
 	BT_FFLUSH(BT_STDOUT);
 	int status = BT_SYSTEM(cmd);
 
