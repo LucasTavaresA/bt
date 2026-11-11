@@ -128,6 +128,10 @@ BT_DEF void bt_run(bt_string cmd);
 #		define BT_SNPRINTF snprintf
 #	endif
 
+#	ifndef BT_FFLUSH
+#		define BT_FFLUSH fflush
+#	endif
+
 #	ifndef BT_EXIT
 #		define BT_EXIT exit
 #	endif
@@ -193,6 +197,7 @@ BT_DEF void bt_run(bt_string cmd);
 					"%s: '%s...' formatted string is too long, increase BT_BUFSIZE!", \
 					__FUNCTION__, cmd);                                               \
 			BT_MSG(" %s\n", cmd);                                                 \
+			BT_FFLUSH(BT_STDOUT);                                                 \
 			BT_SYSTEM(cmd);                                                       \
 		} while (0)
 
@@ -257,6 +262,7 @@ BT_DEF bool bt_needs_recompile(bt_string output,
 BT_DEF void bt_run(bt_string cmd)
 {
 	BT_MSG(" %s\n", cmd);
+	BT_FFLUSH(BT_STDOUT);
 	int status = BT_SYSTEM(cmd);
 
 	// https://pubs.opengroup.org/onlinepubs/9799919799/
